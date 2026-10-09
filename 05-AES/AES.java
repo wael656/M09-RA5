@@ -1,10 +1,10 @@
-import javax.crypto.Cipher;
-import javax.crypto.spec.IvParameterSpec;
-import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Arrays;
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 public class AES {
     public static final String ALGORISME_XIFRAT = "AES";
@@ -31,10 +31,45 @@ public class AES {
     public static byte[] xifraAES(String msg, String clau) throws Exception {
         byte[] bytes = msg.getBytes(StandardCharsets.UTF_8);
         IvParameterSpec ivSpec = generaIV();
+
+        MessageDigest md = MessageDigest.getInstance(ALGORISME_HASH);
+        byte[] clauHash = md.digest(clau.getBytes(StandardCharsets.UTF_8));
+        byte[] clau16Bytes = Arrays.copyOf(clauHash, MIDA_IV);
+        
+        //Crear clau AES
+        SecretKeySpec secretKey = new SecretKeySpec(clau16Bytes, ALGORISME_XIFRAT);
+
+        //Inicialitzar el Cipher i encriptar
+        Cipher cipher = Cipher.getInstance(FORMAT_AES);
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, ivSpec);
+        byte[] msgXifrat = cipher.doFinal(bytes);
+
+        //empaquetar el bytes i els bytes xifrats
+        byte[] paquetFinal = new byte[MIDA_IV + msgXifrat.length];
+        System.arraycopy(ivSpec.getIV(), 0, paquetFinal, 0, MIDA_IV);
+        System.arraycopy(msgXifrat, 0, paquetFinal, MIDA_IV, msgXifrat.length);
+
+        return paquetFinal;
     }
 
     public static String desxifraAES(byte[] bMsgXifrat, String clau) throws Exception {
+        IvParameterSpec ivSpec = extreureIV(bMsgXifrat);
+        byte[] msgXifrat = Arrays.copyOfRange(bMsgXifrat, MIDA_IV, bMsgXifrat.length);
         
+        MessageDigest md = MessageDigest.getInstance(ALGORISME_HASH);
+        byte[] clauHash = md.digest(clau.getBytes(StandardCharsets.UTF_8));
+        byte[] clau16Bytes = Arrays.copyOf(clauHash, MIDA_IV);
+
+        SecretKeySpec secretKey = new SecretKeySpec(clau16Bytes, ALGORISME_XIFRAT);
+
+        //configurar el cipher en mode desencriptar (DECRYPT_MODE)
+        Cipher cipher = Cipher.getInstance(FORMAT_AES);
+        cipher.init(Cipher.DECRYPT_MODE, secretKey, ivSpec);
+        
+        //Desxifrar els bytes
+        byte[] bytesDesxifrats = cipher.doFinal(msgXifrat);
+
+        return new String(bytesDesxifrats, StandardCharsets.UTF_8);
     }
 
     public static void main(String[] args) {
